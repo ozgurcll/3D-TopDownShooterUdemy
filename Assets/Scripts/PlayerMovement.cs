@@ -6,22 +6,21 @@ public class PlayerMovement : MonoBehaviour
     private PlayerControllers controls;
     private CharacterController characterController;
     private Animator anim;
+
     [Header("Movement")]
     [SerializeField] private float walkSpeed;
     [SerializeField] private float runSpeed;
+    [SerializeField] private float turnSpeed;
+
     private float speed;
-    private Vector3 movementDirection;
     private float verticalVelocity;
+
+    public Vector2 moveInput { get; private set; }
+    private Vector3 movementDirection;
+
     private bool isRunning;
 
-    [Header("Aiming")]
-    [SerializeField] private Transform aim;
-    [SerializeField] private LayerMask aimLayerMask;
-    private Vector3 lookingDirection;
 
-
-    private Vector2 moveInput;
-    private Vector2 aimInput;
 
     private void Start()
     {
@@ -35,7 +34,7 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         ApplyMovement();
-        AimTowardsMouse();
+        ApplyRotation();
         AnimatorController();
     }
 
@@ -60,19 +59,14 @@ public class PlayerMovement : MonoBehaviour
             characterController.Move(movementDirection * speed * Time.deltaTime);
         }
     }
-    private void AimTowardsMouse()
+    private void ApplyRotation()
     {
-        Ray ray = Camera.main.ScreenPointToRay(aimInput);
-        if (Physics.Raycast(ray, out var hitInfo, Mathf.Infinity, aimLayerMask))
-        {
-            lookingDirection = hitInfo.point;
-            lookingDirection.y = 0;
-            lookingDirection.Normalize();
+        Vector3 lookingDirection = player.aim.GetMouseHitInfo().point - transform.position;
+        lookingDirection.y = 0;
+        lookingDirection.Normalize();
 
-            transform.forward = lookingDirection;
-
-            aim.position = new Vector3(hitInfo.point.x, transform.position.y + 1, hitInfo.point.z);
-        }
+        Quaternion desiredRotation = Quaternion.LookRotation(lookingDirection);
+        transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, turnSpeed * Time.deltaTime);
     }
     private void ApplyGravity()
     {
@@ -90,9 +84,6 @@ public class PlayerMovement : MonoBehaviour
 
         controls.Player.Movement.performed += context => moveInput = context.ReadValue<Vector2>();
         controls.Player.Movement.canceled += context => moveInput = Vector2.zero;
-
-        controls.Player.Aim.performed += context => aimInput = context.ReadValue<Vector2>();
-        controls.Player.Aim.canceled += context => aimInput = Vector2.zero;
 
         controls.Player.Run.performed += context =>
         {
